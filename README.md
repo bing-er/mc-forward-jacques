@@ -2,8 +2,7 @@
 
 Python implementation of Jacques’ classic **`mc321.c`**  (Chapter 5 of *Steven L. Jacques, 2011*).
 
-This project simulates **photon transport from an isotropic point source** in an infinite, homogeneous turbid medium using the standard  
-**HOP → DROP → SPIN → ROULETTE** Monte Carlo workflow.
+This project simulates **photon transport from an isotropic point source** in an infinite, homogeneous turbid medium using the standard **HOP → DROP → SPIN → ROULETTE** Monte Carlo workflow.
 
 Absorbed energy is recorded in **spherical**, **cylindrical**, and **planar** geometries and converted into fluence using Jacques’ normalization formulas (Appendix 5.7).
 
