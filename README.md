@@ -63,5 +63,5 @@ pip install numpy matplotlib
 ```
 
 ## 📚 Reference
-Jacques, S. L. (2011). Optical Properties of Biological Tissues: A Review.
+Jacques, S. L. (2011). Optical Properties of Biological Tissues: A Review.<br>
 Chapter 5 provides the original mc321.c Monte Carlo model used here.
