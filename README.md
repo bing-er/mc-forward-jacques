@@ -1,8 +1,13 @@
-# Monte Carlo Forward Model for Photon Transport
+# Monte Carlo Forward Model (Finite Slab)
+Date: November 25, 2025
 
-This project implements a Forward Monte Carlo simulation for photon transport in turbid media. It is adapted from the methods described by Steven Jacques [1] and the standard MCML software [2].
+Version: 0.2
 
-This version (v0.4) implements the Finite Slab Geometry, representing a "Pencil Beam" experiment.
+## Project Overview
+
+This project implements a Forward Monte Carlo simulation for photon transport in turbid media. It is adapted from the methods described by Steven Jacques [1] and the standard MCML software [2, 3].
+
+This version (v0.2) implements the Finite Slab Geometry, representing a "Pencil Beam" experiment.
 
 ## 📁 Folder Structure
 ```
