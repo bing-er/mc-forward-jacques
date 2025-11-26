@@ -1,13 +1,13 @@
 # Monte Carlo Forward Model (Finite Slab)
 Date: November 25, 2025
 
-Version: 0.2
+Version: 1.0
 
 ## Project Overview
 
 This project implements a Forward Monte Carlo simulation for photon transport in a finite slab geometry with Fresnel boundaries. It is adapted from the methods described by Steven Jacques [1] and the standard MCML software [2, 3].
 
-This version (v0.2) implements the Finite Slab Geometry, representing a "Pencil Beam" experiment.
+This version (v1.0) implements the Finite Slab Geometry, representing a "Pencil Beam" experiment.
 
 ## 📁 Folder Structure
 ```
@@ -38,7 +38,7 @@ python demo_forward.py
 ```
 This generates:
 ```bash
-figs/Fsph_Fcyl_Fpla.png
+figs/Fluence_Slab_Comparison.png
 ```
 
 ## 📦 Requirements
