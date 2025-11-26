@@ -7,7 +7,6 @@ This version (v0.4) implements the Finite Slab Geometry, representing a "Pencil 
 ## 📁 Folder Structure
 ```
 mc-forward-jacques/
-│
 ├── mc_forward_jacques.py     # The core simulation logic (Finite Slab).
 ├── demo_forward.py           # A script to run the simulation and generate fluence plots.
 ├── figs/                     # Contains output plots.
