@@ -47,5 +47,7 @@ pip install numpy matplotlib
 ```
 
 ## 📚 Reference
-1. S. L. Jacques, Optical-Thermal Response of Laser-Irradiated Tissue, 2011.
-2. L. Wang, S. L. Jacques, and S. A. Prahl, "Monte Carlo modeling of light transport in multi-layered tissues in standard C," Computer Methods and Programs in Biomedicine, 1995. PDF Manual [https://omlc.org/software/mc/man_mcml.pdf]
+1. S. L. Jacques, Optical-Thermal Response of Laser-Irradiated Tissue, 2011. [PDF Chapter](https://omlc.org/software/mc/Jacques2011_MonteCarlo_Welch&VanGemert.pdf)
+2. L. Wang, S. L. Jacques, and S. A. Prahl, "Monte Carlo modeling of light transport in multi-layered tissues in standard C," Computer Methods and Programs in Biomedicine, 1995. [PDF Paper](https://omlc.org/software/mc/mcpubs/1995LWCMPBMcml.pdf)
+3. L. Wang, S. L. Jacques, and S. A. Prahl, MCML User Manual, 1992. [PDF Manual}(https://omlc.org/software/mc/man_mcml.pdf)
+4. Oregon Medical Laser Center (OMLC), Monte Carlo Software Resources. [Website](https://omlc.org/software/mc/)
