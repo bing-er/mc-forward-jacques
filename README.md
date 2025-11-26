@@ -1,42 +1,28 @@
 # Monte Carlo Forward Model for Photon Transport
 
-Python implementation of Jacques’ classic **`mc321.c`**  (Chapter 5 of *Steven L. Jacques, 2011*).
+This project implements a Forward Monte Carlo simulation for photon transport in turbid media. It is adapted from the methods described by Steven Jacques [1] and the standard MCML software [2].
 
-This project simulates **photon transport from an isotropic point source** in an infinite, homogeneous turbid medium using the standard **HOP → DROP → SPIN → ROULETTE** Monte Carlo workflow.
-
-Absorbed energy is recorded in **spherical**, **cylindrical**, and **planar** geometries and converted into fluence using Jacques’ normalization formulas (Appendix 5.7).
+This version (v0.4) implements the Finite Slab Geometry, representing a "Pencil Beam" experiment.
 
 ## 📁 Folder Structure
 ```
 mc-forward-jacques/
 │
-├── mc_forward_jacques.py     # Core Monte Carlo engine
-├── demo_forward.py           # Runs simulation and generates Fig. 1.7
-│
-├── figs/
-│ └── Fsph_Fcyl_Fpla.png      # Jacques-style fluence plot
-│
+├── mc_forward_jacques.py     # The core simulation logic (Finite Slab).
+├── demo_forward.py           # A script to run the simulation and generate fluence plots.
+├── figs/                     # Contains output plots.
 ├── report/
-│ └── Research_Project_Monte_Carlo_Forward_Model.pdf
-│
 └── README.md
 ```
 
 ## 🚀 Key Features
 
-- Faithful Python translation of **Jacques' Monte Carlo model**
-- Exact implementation of:
-  - **HOP** – exponential free-path sampling  
-  - **DROP** – absorption + scoring  
-  - **SPIN** – Henyey–Greenstein scattering  
-  - **ROULETTE** – termination of low-weight photons  
-- Correct HG sampling formula (fixes the known book typo)
-- Fluence output:
-  - `T_sph(r)` — spherical shells  
-  - `T_cyl(r)` — cylindrical shells  
-  - `T_pla(r)` — planar slabs  
-- Output fluence curves reproduce **Fig. 5.10** from Jacques (2011)
-- Includes full **LaTeX report** with derivations and figures
+- Geometry: Finite tissue slab of thickness d with Air/Tissue interfaces.
+- Source: Collimated "Pencil Beam" incident perpendicular to the surface.
+- Physics:
+  - Fresnel Reflection & Refraction: Implemented at top and bottom boundaries using Snell's Law.
+  - Henyey-Greenstein Scattering: Models anisotropic scattering (g).
+- Verification: Tracks Total Energy (Reflectance + Transmittance + Absorption) to ensure conservation = 1.0.
 
 
 ## ▶️ How to Run
@@ -62,5 +48,5 @@ pip install numpy matplotlib
 ```
 
 ## 📚 Reference
-Jacques, S. L. (2011). Optical Properties of Biological Tissues: A Review.<br>
-Chapter 5 provides the original mc321.c Monte Carlo model used here.
+1. S. L. Jacques, Optical-Thermal Response of Laser-Irradiated Tissue, 2011.
+2. L. Wang, S. L. Jacques, and S. A. Prahl, "Monte Carlo modeling of light transport in multi-layered tissues in standard C," Computer Methods and Programs in Biomedicine, 1995. PDF Manual [https://omlc.org/software/mc/man_mcml.pdf]
