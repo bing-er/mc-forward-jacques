@@ -5,7 +5,7 @@ Version: 0.2
 
 ## Project Overview
 
-This project implements a Forward Monte Carlo simulation for photon transport in turbid media. It is adapted from the methods described by Steven Jacques [1] and the standard MCML software [2, 3].
+This project implements a Forward Monte Carlo simulation for photon transport in a finite slab geometry with Fresnel boundaries. It is adapted from the methods described by Steven Jacques [1] and the standard MCML software [2, 3].
 
 This version (v0.2) implements the Finite Slab Geometry, representing a "Pencil Beam" experiment.
 
