@@ -13,10 +13,10 @@ and planar geometries.
 
 - `demo_forward.py`  
   Runs the simulation with Jacques-like parameters and generates
-  `figs/Fsph_Fcyl_Fpla.png` (Jacques-style fluence plot).
+  `figs/Fluence_Slab_Comparison.png` (Jacques-style fluence plot).
 
-- `figs/Fsph_Fcyl_Fpla.png`  
-  Final figure used in the report (Fig. 1.7).
+- `figs/Fluence_Slab_Comparison.png`  
+  Final figure used in the report.
 
 ## How to run
 
