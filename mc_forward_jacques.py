@@ -2,41 +2,38 @@
 mc_forward_jacques.py
 
 Author: Binger Yu
-Date: 2025-11-22
-version: 0.1
+Date: 2025-11-28
+version: 1.1
 
-Python translation of Jacques' mc321.c (Chapter 5, Jacques 2011).
+Python translation of Jacques' Monte Carlo model (Chapter 5, Welch & van Gemert, 2011)
+<https://omlc.org/software/mc/Jacques2011_MonteCarlo_Welch&VanGemert.pdf>
+and the MCML standard (Wang et al., 1995)<https://omlc.org/software/mc/man_mcml.pdf>.
 
-This implements a forward Monte Carlo simulation of photon transport
-from an isotropic point source in an infinite, homogeneous medium.
+REFERENCES:
+1. Jacques, S. L. "Monte Carlo Modeling..." in Optical-Thermal Response of Laser-Irradiated Tissue.
+   - Eq 5.34-5.35: Boundary interaction (Hop/Step size).
+   - Eq 5.36: Fresnel Reflection.
+2. Wang, L., Jacques, S. L., & Prahl, S. A. (1995). MCML Manual.
+   - Chapter 3: Rules for Photon Propagation.
 
-Key features
------------
-- isotropic point source at the origin
-- photon interactions: absorption, scattering, roulette termination
-- no boundaries (photons never escape)
-- absorbed energy scored in:
-    * spherical shells  (r = sqrt(x^2 + y^2 + z^2))
-    * cylindrical shells (r = sqrt(x^2 + y^2))
-    * planar slabs      (r = |z|)
+KEY FEATURES:
+- Geometry: Finite slab (0 <= z <= d).
+- Source: Collimated pencil beam (Green's function impulse response).
+- Physics: Fresnel reflection/refraction at boundaries.
 """
 
 import math
 from typing import Tuple
-
 import numpy as np
 
-# ---- global constants (mirroring the C code) ----
+# ---- global constants ----
 PI = math.pi
-
 ALIVE = 1
 DEAD = 0
-
-THRESHOLD = 0.01          # roulette threshold for photon weight
-CHANCE = 0.1              # roulette survival probability
-
-# numerical guard used when |uz| is very close to 1
+THRESHOLD = 0.01  # roulette threshold
+CHANCE = 0.1  # roulette survival probability
 ONE_MINUS_COSZERO = 1.0e-12
+STEP_EPS = 1.0e-9  # safety for log(0)
 
 
 def sign(x: float) -> int:
@@ -44,212 +41,235 @@ def sign(x: float) -> int:
     return 1 if x >= 0.0 else -1
 
 
-def run_mc(
-    mua: float = 1.673,         # absorption coefficient [cm^-1]
-    mus: float = 312.0,         # scattering coefficient [cm^-1]
-    g: float = 0.90,            # anisotropy factor (Henyey–Greenstein)
-    nt: float = 1.33,           # refractive index (not used here, kept for completeness)
-    Nphotons: int = 10_000,     # number of launched photons
-    radial_size: float = 2.0,   # maximum radius for scoring bins [cm]
-    NR: int = 500,              # number of radial bins
-    seed: int | None = 1234,    # RNG seed (None -> unpredictable)
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def fresnel_reflectance(n1: float, n2: float, ca1: float) -> float:
     """
-    Run the forward Monte Carlo simulation (Jacques-style).
+    Calculate Fresnel reflectance R for unpolarized light.
+    Matches Eq. 5.36 (Jacques 2011) / Eq. 3.26 (MCML Manual),
+    but uses efficient cosine formulation to avoid expensive trig functions.
 
     Parameters
     ----------
-    mua, mus : float
-        Absorption and scattering coefficients [cm^-1].
-    g : float
-        Anisotropy parameter of the Henyey–Greenstein phase function (-1 <= g <= 1).
-    nt : float
-        Refractive index (unused in this infinite, boundary-free model).
-    Nphotons : int
-        Number of photons to simulate.
-    radial_size : float
-        Maximum radius covered by scoring bins [cm].
-    NR : int
-        Number of radial bins; an additional overflow bin NR is used.
-    seed : int or None
-        Seed for NumPy's default RNG.
-
-    Returns
-    -------
-    r_centers : (NR+1,) ndarray
-        Radial bin center positions [cm].
-    Fsph, Fcyl, Fpla : (NR+1,) ndarray
-        Fluence T(r) [1/cm^2] for spherical, cylindrical, and planar geometries.
-        The last element (index NR) is the overflow bin.
+    n1, n2 : Refractive indices of current and entered medium
+    ca1    : Cosine of the angle of incidence (0 <= ca1 <= 1)
     """
+    if n1 == n2: return 0.0
+
+    if ca1 > 1.0: ca1 = 1.0
+    if ca1 < 0.0: ca1 = 0.0
+
+    sa1_sq = 1.0 - ca1 * ca1
+
+    # Snell's Law: n1 * sin(theta1) = n2 * sin(theta2)
+    # Check for Total Internal Reflection (TIR)
+    val = (n1 / n2) * (n1 / n2) * sa1_sq
+    if val >= 1.0:
+        return 1.0  # TIR
+
+    ca2 = math.sqrt(1.0 - val)  # Cosine of transmission angle
+
+    # Fresnel formulas (Amplitude Coefficients)
+    # This is mathematically equivalent to the tan/sin formula in Eq 5.36
+    # but faster computationally.
+    rs = (n1 * ca1 - n2 * ca2) / (n1 * ca1 + n2 * ca2)
+    rp = (n1 * ca2 - n2 * ca1) / (n1 * ca2 + n2 * ca1)
+
+    # Unpolarized light is average of s and p polarizations
+    return 0.5 * (rs ** 2 + rp ** 2)
+
+
+def run_mc(
+        mua: float = 1.673,      # absorption coeff [cm^-1]
+        mus: float = 312.0,      # scattering coeff [cm^-1]
+        g: float = 0.90,         # anisotropy
+        nt: float = 1.33,        # refractive index of tissue (slab)
+        n_env: float = 1.0,      # refractive index of environment (air)
+        thickness: float = 0.1,  # thickness of the slab [cm]
+        Nphotons: int = 10_000,
+        radial_size: float = 2.0,
+        NR: int = 500,
+        seed: int | None = 1234,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, float, float]:
+    """
+    Run MC simulation for a finite slab (Pencil Beam).
+    """
+
     rng = np.random.default_rng(seed)
 
-    # ---- derived optical properties ----
-    dr = radial_size / NR                    # radial bin width [cm]
-    mut = mua + mus                          # total attenuation coefficient
-    if mut <= 0:
-        raise ValueError("mua + mus must be > 0")
-    albedo = mus / mut                       # single-scattering albedo
+    # Optical Properties
+    mut = mua + mus
+    if mut <= 0: raise ValueError("mua + mus must be > 0")
+    absorption_rate = mua / mut
+    dr = radial_size / NR
 
-    # absorbed energy accumulators (last bin is overflow)
+    # Scoring Arrays
     Csph = np.zeros(NR + 1, dtype=float)
     Ccyl = np.zeros(NR + 1, dtype=float)
     Cpla = np.zeros(NR + 1, dtype=float)
 
-    # ------------------------------------------------------------------
-    # main photon loop
-    # ------------------------------------------------------------------
+    # Counters for macroscopic results
+    total_reflection = 0.0
+    total_transmission = 0.0
+
+    # Specular Reflection at surface (normal incidence)
+    # See Eq. 5.36 for theta=0 (Normal incidence)
+    r_sp = (n_env - nt) / (n_env + nt)
+    specular_R = r_sp ** 2
+
+    # Main Loop
     i_photon = 0
     while i_photon < Nphotons:
         i_photon += 1
 
-        # ---- LAUNCH: start at origin with isotropic direction ----
-        W = 1.0
+        # LAUNCH: Collimated Beam (straight down)
+        x, y, z = 0.0, 0.0, 0.0
+        ux, uy, uz = 0.0, 0.0, 1.0
+
+        # Subtract specular reflection immediately
+        W = 1.0 - specular_R
+
+        if W <= 0: continue
+
         photon_status = ALIVE
 
-        x = y = z = 0.0
-
-        # isotropic direction: cos(theta) and psi ~ U(0, 2π)
-        costheta = 2.0 * rng.random() - 1.0
-        sintheta = math.sqrt(max(0.0, 1.0 - costheta * costheta))
-        psi = 2.0 * PI * rng.random()
-        ux = sintheta * math.cos(psi)
-        uy = sintheta * math.sin(psi)
-        uz = costheta
-
-        # ---- HOP–DROP–SPIN–ROULETTE loop for a single photon ----
         while photon_status == ALIVE:
-            # ---------------- HOP: sample step length ----------------
-            # Draw a strictly positive random number 0 < rnd <= 1
-            rnd = 0.0
-            while rnd <= 0.0:
-                rnd = rng.random()
-            s = -math.log(rnd) / mut   # step size [cm] (exponential free path)
+            # 1. HOP: Sample step size
+            # Eq 5.31 (Jacques 2011) / Eq 3.13 (MCML)
+            rnd = STEP_EPS + (1.0 - STEP_EPS) * rng.random()
+            s = -math.log(rnd) / mut
 
-            # update position
-            x += s * ux
-            y += s * uy
-            z += s * uz
+            # 2. CHECK BOUNDARIES (Eq 5.33 - 5.35)
+            # We must loop because a reflected photon might hit the other
+            # boundary before the step 's' is finished.
+            while s > 0:
+                d_bound = 0.0
 
-            # ---------------- DROP: absorb weight -------------------
-            absorb = W * (1.0 - albedo)   # fraction absorbed in this step
-            W -= absorb
+                # Distance to boundary (Eq 3.23 MCML / Eq 5.34 Jacques)
+                if uz > 0:
+                    d_bound = (thickness - z) / uz  # To bottom (z=d)
+                elif uz < 0:
+                    d_bound = -z / uz  # To top (z=0)
+                else:
+                    d_bound = float('inf')  # Horizontal
 
-            # Deposit absorbed energy into the three scoring geometries.
+                if s > d_bound:
+                    # Hit boundary! Move to boundary first.
+                    x += d_bound * ux
+                    y += d_bound * uy
+                    z += d_bound * uz
+                    s -= d_bound  # Remaining step
 
-            # (1) Spherical shells: r = sqrt(x^2 + y^2 + z^2)
-            r = math.sqrt(x * x + y * y + z * z)
+                    # Interaction: Calculate Fresnel Reflection (Eq 5.36)
+                    Refl = fresnel_reflectance(nt, n_env, abs(uz))
+
+                    if rng.random() > Refl:
+                        # Transmit (Escape) - Eq 5.37
+                        photon_status = DEAD
+                        if uz < 0:
+                            total_reflection += W  # Escaped Top
+                        else:
+                            total_transmission += W  # Escaped Bottom
+                        break
+                    else:
+                        # Reflect (Bounce back)
+                        uz = -uz
+                        # Photon continues remaining 's' inside this loop
+                else:
+                    # No boundary hit. Move full step.
+                    x += s * ux
+                    y += s * uy
+                    z += s * uz
+                    s = 0.0
+
+            if photon_status == DEAD:
+                break
+
+            # 3. DROP (Absorb)
+            absorbed = W * absorption_rate
+            W -= absorbed
+
+            # Scoring
+            r = math.sqrt(x ** 2 + y ** 2 + z ** 2)
             ir = int(r / dr)
-            if ir >= NR:
-                ir = NR
-            Csph[ir] += absorb
+            if ir > NR: ir = NR
+            Csph[ir] += absorbed
 
-            # (2) Cylindrical shells: r = sqrt(x^2 + y^2)
-            r = math.sqrt(x * x + y * y)
-            ir = int(r / dr)
-            if ir >= NR:
-                ir = NR
-            Ccyl[ir] += absorb
+            r_cyl = math.sqrt(x ** 2 + y ** 2)
+            ir_cyl = int(r_cyl / dr)
+            if ir_cyl > NR: ir_cyl = NR
+            Ccyl[ir_cyl] += absorbed
 
-            # (3) Planar slabs: r = |z|
-            r = abs(z)
-            ir = int(r / dr)
-            if ir >= NR:
-                ir = NR
-            Cpla[ir] += absorb
+            r_pla = abs(z)
+            ir_pla = int(r_pla / dr)
+            if ir_pla > NR: ir_pla = NR
+            Cpla[ir_pla] += absorbed
 
-            # ---------------- SPIN: scatter photon ------------------
-            # Sample scattering angle from Henyey–Greenstein (HG).
+            # 4. SPIN (Scatter)
+            # Sample Henyey-Greenstein (Eq 3.19 in Jacques 2011)
             rnd = rng.random()
             if g == 0.0:
-                # isotropic scattering
                 costheta = 2.0 * rnd - 1.0
             else:
-                # HG sampling consistent with mc321.c (no 3/2 exponent)
-                temp = (1.0 - g * g) / (1.0 - g + 2.0 * g * rnd)
-                costheta = (1.0 + g * g - temp * temp) / (2.0 * g)
+                temp = (1.0 - g ** 2) / (1.0 - g + 2.0 * g * rnd)
+                costheta = (1.0 + g ** 2 - temp ** 2) / (2.0 * g)
 
-            # Clamp for numerical safety
             costheta = max(min(costheta, 1.0), -1.0)
-            sintheta = math.sqrt(max(0.0, 1.0 - costheta * costheta))
+            sintheta = math.sqrt(max(0.0, 1.0 - costheta ** 2))
 
-            # Azimuthal angle uniformly distributed
             psi = 2.0 * PI * rng.random()
             cospsi = math.cos(psi)
-
-            # Compute sin(psi) with sign, like the original C code
             if psi < PI:
-                sinpsi = math.sqrt(max(0.0, 1.0 - cospsi * cospsi))
+                sinpsi = math.sqrt(max(0.0, 1.0 - cospsi ** 2))
             else:
-                sinpsi = -math.sqrt(max(0.0, 1.0 - cospsi * cospsi))
+                sinpsi = -math.sqrt(max(0.0, 1.0 - cospsi ** 2))
 
-            # Update direction cosines (ux, uy, uz)
             if 1.0 - abs(uz) <= ONE_MINUS_COSZERO:
-                # Nearly parallel to z-axis: use simplified formulas
                 uxx = sintheta * cospsi
                 uyy = sintheta * sinpsi
                 uzz = costheta * sign(uz)
             else:
-                # General case: rotate around current direction
-                temp = math.sqrt(max(0.0, 1.0 - uz * uz))
-                uxx = (
-                    sintheta * (ux * uz * cospsi - uy * sinpsi) / temp
-                    + ux * costheta
-                )
-                uyy = (
-                    sintheta * (uy * uz * cospsi + ux * sinpsi) / temp
-                    + uy * costheta
-                )
+                temp = math.sqrt(1.0 - uz ** 2)
+                uxx = sintheta * (ux * uz * cospsi - uy * sinpsi) / temp + ux * costheta
+                uyy = sintheta * (uy * uz * cospsi + ux * sinpsi) / temp + uy * costheta
                 uzz = -sintheta * cospsi * temp + uz * costheta
 
             ux, uy, uz = uxx, uyy, uzz
 
-            # ------------- ROULETTE: terminate photon ---------------
+            # 5. ROULETTE
             if W < THRESHOLD:
-                # Survive with probability CHANCE; otherwise die.
                 if rng.random() <= CHANCE:
-                    W /= CHANCE   # boost weight to keep expectation unbiased
+                    W /= CHANCE
                 else:
                     photon_status = DEAD
 
-    # ------------------------------------------------------------------
-    # POSTPROCESS: convert absorbed energy Csph/Ccyl/Cpla to fluence T(r)
-    # using Jacques' normalization (Appendix 5.7).
-    # ------------------------------------------------------------------
-    r_centers = np.zeros(NR + 1, dtype=float)
-    Fsph = np.zeros(NR + 1, dtype=float)
-    Fcyl = np.zeros(NR + 1, dtype=float)
-    Fpla = np.zeros(NR + 1, dtype=float)
+    # Normalization
+    r_centers = np.arange(NR + 1) * dr + (dr / 2.0)
 
-    for ir in range(NR + 1):
-        # bin center radius
-        r = (ir + 0.5) * dr
-        r_centers[ir] = r
+    vol_sph = 4.0 * PI * (r_centers ** 2) * dr
+    Fsph = Csph / Nphotons / vol_sph / mua
 
-        # (1) spherical shells: volume = 4π r^2 Δr
-        shellvolume = 4.0 * PI * r * r * dr
-        Fsph[ir] = Csph[ir] / Nphotons / shellvolume / mua
+    vol_cyl = 2.0 * PI * r_centers * dr
+    Fcyl = Ccyl / Nphotons / vol_cyl / mua
 
-        # (2) cylindrical shells (per cm length): volume = 2π r Δr
-        shellvolume = 2.0 * PI * r * dr
-        Fcyl[ir] = Ccyl[ir] / Nphotons / shellvolume / mua
+    vol_pla = dr
+    Fpla = Cpla / Nphotons / vol_pla / mua
 
-        # (3) planar slabs (per cm^2): thickness = Δr
-        shellvolume = dr
-        Fpla[ir] = Cpla[ir] / Nphotons / shellvolume / mua
+    R_total = total_reflection / Nphotons
+    T_total = total_transmission / Nphotons
 
-    return r_centers, Fsph, Fcyl, Fpla
+    return r_centers, Fsph, Fcyl, Fpla, R_total, T_total
 
 
 if __name__ == "__main__":
-    # Example run with fewer photons for a quick sanity check
-    r, Fsph, Fcyl, Fpla = run_mc(
-        Nphotons=5_000,
-        mua=1.0,
-        mus=10.0,
+    # Test run
+    r, Fsph, Fcyl, Fpla, R_tot, T_tot = run_mc(
+        Nphotons=10_000,
+        mua=10.0,
+        mus=90.0,
         g=0.9,
+        nt=1.33,
+        n_env=1.0,
+        thickness=0.02,
+        radial_size=0.05,
+        NR=100
     )
-
-    # Print the first few spherical fluence values
-    for i in range(5):
-        print(f"r = {r[i]:.3f} cm,  Fsph = {Fsph[i]:.3e}")
+    print(f"Simulation Complete. R={R_tot:.4f}, T={T_tot:.4f}")
