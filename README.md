@@ -1,5 +1,5 @@
 # Monte Carlo Forward Model (Finite Slab)
-Date: November 28, 2025<br>
+Date: November 29, 2025<br>
 Version: 1.1
 
 ## Project Overview
@@ -21,6 +21,7 @@ This version (v1.1) implements the Finite Slab Geometry, representing a “Penci
 ``` 
 mc-forward-jacques/
 ├── mc_forward_jacques.py   # Core Monte Carlo simulation logic (Finite Slab)
+├── vis_trajectories.py     # Helper script to visualize photon trajectories
 ├── demo_forward.py         # Script to run the simulation and generate plots
 ├── figs/                   # Output fluence plots
 ├── report/                 # Project report (LaTeX source)
@@ -39,8 +40,7 @@ mc-forward-jacques/
 - **Absorption & scattering** follow the MCML model.
 
 ### Verification
-- Ensures **energy conservation ≈ 1.0**  
-  (Reflectance + Transmittance + Absorption).
+- Ensures **energy conservation ≈ 1.0** (Reflectance + Transmittance + Absorption).
 
 
 ## ▶️ How to Run
@@ -60,6 +60,15 @@ python demo_forward.py
  ```
 This generates: figs/Fluence_Slab_Comparison.png
 
+3. Visualize Trajectories:
+Run the visualization script to generate 3D trajectory plots:
+```bash
+python vis_trajectories.py
+```
+
+This generates:
+- `figs/trajectories_side_view.png`
+- `figs/trajectories_top_down.png`
 ## 📚 References
 1. S. L. Jacques, “Monte carlo modeling of light transport in tissue,” in Optical-Thermal Re-
 sponse of Laser-Irradiated Tissue, pp. 109–144, Springer, 2011.
