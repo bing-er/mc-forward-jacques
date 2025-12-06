@@ -8,7 +8,6 @@
 
 </div>
 
-# Monte Carlo Forward Model (Finite Slab)
 Date: November 29, 2025<br>
 Version: 1.1
 
