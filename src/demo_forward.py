@@ -79,7 +79,7 @@ Fcyl_log = mask_zeros(Fcyl_plot)
 Fpla_log = mask_zeros(Fpla_plot)
 
 # Ensure output folder exists
-out_dir = Path("figs")
+out_dir = Path("../figs")
 out_dir.mkdir(exist_ok=True)
 
 # -------------------------------------------------------------
