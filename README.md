@@ -1,3 +1,13 @@
+<div align="center">
+
+# Monte Carlo Forward Model (Finite Slab)
+
+[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)]()
+[![License](https://img.shields.io/badge/License-MIT-green.svg)]()
+[![Status](https://img.shields.io/badge/Status-In%20Progress-yellow.svg)]()
+
+</div>
+
 # Monte Carlo Forward Model (Finite Slab)
 Date: November 29, 2025<br>
 Version: 1.1
