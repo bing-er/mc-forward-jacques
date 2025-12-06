@@ -69,6 +69,15 @@ python vis_trajectories.py
 This generates:
 - `figs/trajectories_side_view.png`
 - `figs/trajectories_top_down.png`
+
+
+## 📊 Visualization of Results
+<img width="600" alt="RuntimeComparison" src="figs/Fluence_Slab_Comparison.png">
+
+<img width="600" alt="RuntimeComparison" src="figs/trajectories_side_view.png">
+
+<img width="600" alt="RuntimeComparison" src="figs/trajectories_top_down.png">
+
 ## 📚 References
 1. S. L. Jacques, “Monte carlo modeling of light transport in tissue,” in Optical-Thermal Re-
 sponse of Laser-Irradiated Tissue, pp. 109–144, Springer, 2011.
